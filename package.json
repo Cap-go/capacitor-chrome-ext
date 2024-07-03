@@ -1,0 +1,9 @@
+{
+  "devDependencies": {
+    "@capacitor/core": "^6.1.0",
+    "@types/chrome": "^0.0.268"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json "
+  }
+}
