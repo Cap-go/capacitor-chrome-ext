@@ -1,63 +1,72 @@
-/// <reference types="chrome"/>
+// background.ts
+
 import { DeviceConfig, devices } from './deviceConfigs';
 
-let isActive = false;
-let isCameraVisible = false;
-let currentDevice: DeviceConfig = devices[0];
-
-function updateIcon() {
-  console.log('Updating icon', isActive);
-  const path = isActive ? {
-    "16": "/assets/icon16_active.png",
-    "48": "/assets/icon48_active.png",
-    "128": "/assets/icon128_active.png"
-  } : {
-    "16": "/assets/icon16.png",
-    "48": "/assets/icon48.png",
-    "128": "/assets/icon128.png"
-  };
-  chrome.action.setIcon({ path });
+interface TabState {
+  isActive: boolean;
+  isCameraVisible: boolean;
+  currentDevice: DeviceConfig;
 }
 
-function updateBadgeText() {
-  console.log('Updating badge text', currentDevice.name);
-  chrome.action.setBadgeText({ text: isActive ? currentDevice.name.slice(0, 4) : '' });
-}
+const tabStates: { [tabId: number]: TabState } = {};
 
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.sync.set({ currentDevice: JSON.stringify(currentDevice) });
-});
-
-chrome.storage.sync.get(['currentDevice'], (result) => {
-  if (result.currentDevice) {
-    currentDevice = JSON.parse(result.currentDevice);
+function getTabState(tabId: number): TabState {
+  if (!tabStates[tabId]) {
+    tabStates[tabId] = {
+      isActive: false,
+      isCameraVisible: false,
+      currentDevice: devices[0]
+    };
   }
-});
+  return tabStates[tabId];
+}
+
+function updateIcon(tabId: number) {
+  const state = getTabState(tabId);
+  const path = state.isActive ? "/assets/icon_active.png" : "/assets/icon.png";
+  chrome.action.setIcon({ path, tabId });
+}
+
+function updateBadgeText(tabId: number) {
+  const state = getTabState(tabId);
+  chrome.action.setBadgeText({ 
+    text: state.isActive ? state.currentDevice.name.slice(0, 4) : '', 
+    tabId 
+  });
+}
+
+function syncState(tabId: number) {
+  const state = getTabState(tabId);
+  chrome.storage.local.set({ [tabId]: state });
+  updateIcon(tabId);
+  updateBadgeText(tabId);
+  chrome.runtime.sendMessage({ 
+    action: 'updateState', 
+    tabId,
+    state
+  });
+}
 
 function applySafeAreaAndCamera(tabId: number) {
-  const { safeArea, camera } = currentDevice;
+  const { safeArea, camera } = getTabState(tabId).currentDevice;
   let css = `
     :root {
-      /* Ionic safe area variables */
       --ion-safe-area-top: ${safeArea.top}px;
       --ion-safe-area-right: ${safeArea.right}px;
       --ion-safe-area-bottom: ${safeArea.bottom}px;
       --ion-safe-area-left: ${safeArea.left}px;
 
-      /* Konsta UI safe area variables */
       --k-safe-area-top: ${safeArea.top}px;
       --k-safe-area-right: ${safeArea.right}px;
       --k-safe-area-bottom: ${safeArea.bottom}px;
       --k-safe-area-left: ${safeArea.left}px;
 
-      /* General safe area env() variables */
       --safe-area-inset-top: ${safeArea.top}px;
       --safe-area-inset-right: ${safeArea.right}px;
       --safe-area-inset-bottom: ${safeArea.bottom}px;
       --safe-area-inset-left: ${safeArea.left}px;
     }
 
-    /* Override env() function for testing purposes */
     @supports (top: env(safe-area-inset-top)) {
       :root {
         --safe-area-inset-top: env(safe-area-inset-top);
@@ -67,7 +76,6 @@ function applySafeAreaAndCamera(tabId: number) {
       }
     }
 
-    /* Ensure Konsta UI picks up our simulated values */
     .safe-areas {
       --k-safe-area-top: var(--safe-area-inset-top);
       --k-safe-area-right: var(--safe-area-inset-right);
@@ -75,7 +83,6 @@ function applySafeAreaAndCamera(tabId: number) {
       --k-safe-area-left: var(--safe-area-inset-left);
     }
 
-    /* Basic body padding for demonstration */
     body {
       padding-top: var(--safe-area-inset-top);
       padding-right: var(--safe-area-inset-right);
@@ -85,142 +92,98 @@ function applySafeAreaAndCamera(tabId: number) {
     }
   `;
 
-  if (camera && isCameraVisible) {
-    const left = camera.left !== undefined 
-      ? `left: ${camera.left}px;` 
-      : 'left: 50%; transform: translateX(-50%);';
-    const borderRadius = camera.shape === 'round' 
-      ? '50%' 
-      : `${camera.height / 2}px`;
-
+  if (camera && getTabState(tabId).isCameraVisible) {
     css += `
       body::before {
         content: '';
         position: fixed;
         top: ${camera.top}px;
-        ${left}
+        left: ${camera.left ?? '50%'};
+        transform: ${camera.left === undefined ? 'translateX(-50%)' : 'none'};
         width: ${camera.width}px;
         height: ${camera.height}px;
         background-color: #000;
-        border-radius: ${borderRadius};
+        border-radius: ${camera.shape === 'round' ? '50%' : `${camera.height / 2}px`};
         z-index: 10000;
       }
     `;
   }
 
-  chrome.scripting.insertCSS({
-    target: { tabId: tabId },
-    css: css
-  });
+  chrome.scripting.insertCSS({ target: { tabId }, css });
 }
 
 function applySimulation(tabId: number) {
-  console.log('Applying simulation for device:', currentDevice.name);
-  
   applySafeAreaAndCamera(tabId);
-
   chrome.scripting.executeScript({
-    target: { tabId: tabId },
+    target: { tabId },
     func: (device, cameraVisible) => {
       console.log(`Capacitor Safe Area Simulator: Activated for ${device.name}`);
-      console.log(`Camera visible: ${cameraVisible}`);
       window.dispatchEvent(new CustomEvent('activateSafeArea', { detail: device }));
     },
-    args: [currentDevice, isCameraVisible]
+    args: [getTabState(tabId).currentDevice, getTabState(tabId).isCameraVisible]
   });
 }
 
 function removeSimulation(tabId: number) {
-  const resetCSS = `
-    :root {
-      --ion-safe-area-top: 0px;
-      --ion-safe-area-right: 0px;
-      --ion-safe-area-bottom: 0px;
-      --ion-safe-area-left: 0px;
-
-      --k-safe-area-top: 0px;
-      --k-safe-area-right: 0px;
-      --k-safe-area-bottom: 0px;
-      --k-safe-area-left: 0px;
-
-      --safe-area-inset-top: 0px;
-      --safe-area-inset-right: 0px;
-      --safe-area-inset-bottom: 0px;
-      --safe-area-inset-left: 0px;
-    }
-    body {
-      padding: 0 !important;
-    }
-    body::before {
-      display: none !important;
-    }
-  `;
-
   chrome.scripting.insertCSS({
-    target: { tabId: tabId },
-    css: resetCSS
+    target: { tabId },
+    css: `
+      :root { 
+        --ion-safe-area-top: 0; --ion-safe-area-right: 0; --ion-safe-area-bottom: 0; --ion-safe-area-left: 0;
+        --k-safe-area-top: 0; --k-safe-area-right: 0; --k-safe-area-bottom: 0; --k-safe-area-left: 0;
+        --safe-area-inset-top: 0; --safe-area-inset-right: 0; --safe-area-inset-bottom: 0; --safe-area-inset-left: 0;
+      }
+      body { padding: 0 !important; }
+      body::before { display: none !important; }
+    `
   });
-
   chrome.scripting.executeScript({
-    target: { tabId: tabId },
-    func: () => {
-      console.log('Capacitor Safe Area Simulator: Deactivated');
-      window.dispatchEvent(new Event('resetSafeArea'));
-    }
+    target: { tabId },
+    func: () => window.dispatchEvent(new Event('resetSafeArea'))
   });
+}
+
+function handleMessage(message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) {
+  const tabId = message.tabId || sender.tab?.id;
+  if (!tabId) {
+    sendResponse({ error: 'No tab ID provided' });
+    return;
+  }
+
+  const state = getTabState(tabId);
+
+  switch (message.action) {
+    case 'changeDevice':
+      state.currentDevice = devices[message.deviceIndex];
+      state.isActive = true;
+      break;
+    case 'toggleSimulation':
+      state.isActive = message.isActive;
+      break;
+    case 'toggleCamera':
+      state.isCameraVisible = message.isVisible;
+      break;
+    case 'getState':
+      sendResponse({ 
+        isActive: state.isActive, 
+        isCameraVisible: state.isCameraVisible, 
+        currentDeviceIndex: devices.findIndex(d => d.name === state.currentDevice.name) 
+      });
+      return;
+  }
+
+  syncState(tabId);
+
+  if (state.isActive) {
+    applySimulation(tabId);
+  } else {
+    removeSimulation(tabId);
+  }
+
+  sendResponse({ success: true });
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'changeDevice') {
-    currentDevice = devices[message.deviceIndex];
-    chrome.storage.sync.set({ currentDevice });
-    updateBadgeText();
-    chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-      if (tabs[0] && tabs[0].id) {
-        if (isActive) {
-          removeSimulation(tabs[0].id);
-        }
-        isActive = true;
-        applySimulation(tabs[0].id);
-        updateIcon();
-      }
-    });
-    // Notify all DevTools instances about the change
-    chrome.runtime.sendMessage({ action: 'updateDeviceSelection', deviceIndex: message.deviceIndex });
-  } else if (message.action === 'toggleSimulation') {
-    isActive = message.isActive;
-    chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-      if (tabs[0] && tabs[0].id) {
-        if (isActive) {
-          applySimulation(tabs[0].id);
-        } else {
-          removeSimulation(tabs[0].id);
-        }
-        updateIcon();
-        updateBadgeText();
-      }
-    });
-  } else if (message.action === 'toggleCamera') {
-    isCameraVisible = message.isVisible;
-    if (isActive) {
-      chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-        if (tabs[0] && tabs[0].id) {
-          removeSimulation(tabs[0].id);
-          applySimulation(tabs[0].id);
-        }
-      });
-    }
-  }
+  handleMessage(message, sender, sendResponse);
+  return true;  // Indicates that we will send a response asynchronously
 });
-
-// Add this function to handle tab updates
-function handleTabUpdate(tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) {
-  if (changeInfo.status === 'complete' && isActive) {
-    applySafeAreaAndCamera(tabId);
-  }
-}
-
-// Add listener for tab updates
-chrome.tabs.onUpdated.addListener(handleTabUpdate);
-
-console.log('Background script loaded');
