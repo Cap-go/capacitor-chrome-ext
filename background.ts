@@ -34,8 +34,7 @@ chrome.storage.sync.get(['currentDevice'], (result) => {
   }
 });
 
-function applySimulation(tabId: number) {
-  console.log('Applying simulation for device:', currentDevice.name);
+function applySafeAreaAndCamera(tabId: number) {
   const { safeArea, camera } = currentDevice;
   let css = `
     :root {
@@ -45,7 +44,8 @@ function applySimulation(tabId: number) {
       --safe-area-inset-left: ${safeArea.left}px;
     }
     body {
-      padding: var(--safe-area-inset-top) var(--safe-area-inset-right) var(--safe-area-inset-bottom) var(--safe-area-inset-left);
+      padding: var(--safe-area-inset-top) var(--safe-area-inset-right) var(--safe-area-inset-bottom) var(--safe-area-inset-left) !important;
+      box-sizing: border-box !important;
     }
   `;
 
@@ -71,6 +71,12 @@ function applySimulation(tabId: number) {
     target: { tabId: tabId },
     css: css
   });
+}
+
+function applySimulation(tabId: number) {
+  console.log('Applying simulation for device:', currentDevice.name);
+  
+  applySafeAreaAndCamera(tabId);
 
   chrome.scripting.executeScript({
     target: { tabId: tabId },
@@ -153,5 +159,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
   }
 });
+
+// Add this function to handle tab updates
+function handleTabUpdate(tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) {
+  if (changeInfo.status === 'complete' && isActive) {
+    applySafeAreaAndCamera(tabId);
+  }
+}
+
+// Add listener for tab updates
+chrome.tabs.onUpdated.addListener(handleTabUpdate);
 
 console.log('Background script loaded');
