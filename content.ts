@@ -11,6 +11,15 @@ declare global {
 
 const originalCapacitor = window.Capacitor;
 
+let registeredPlugins: { [key: string]: any } = {};
+
+function getOrRegisterPlugin(pluginName: string) {
+  if (!registeredPlugins[pluginName]) {
+    registeredPlugins[pluginName] = Capacitor.registerPlugin(pluginName);
+  }
+  return registeredPlugins[pluginName];
+}
+
 function overrideSafeArea(device: DeviceConfig) {
   console.log(`Capacitor Safe Area Simulator: Overriding Capacitor for ${device.name}`);
   if (!window.Capacitor) {
@@ -21,9 +30,9 @@ function overrideSafeArea(device: DeviceConfig) {
   window.Capacitor.isNativePlatform = () => true;
   window.Capacitor.isPluginAvailable = () => true;
 
-  // Use registerPlugin instead of accessing Plugins directly
-  const StatusBar: any = Capacitor.registerPlugin('StatusBar');
-  const SafeArea: any = Capacitor.registerPlugin('SafeArea');
+  // Use getOrRegisterPlugin instead of registering directly
+  const StatusBar = getOrRegisterPlugin('StatusBar');
+  const SafeArea = getOrRegisterPlugin('SafeArea');
 
   StatusBar.getInfo = async () => {
     console.log(`Capacitor Safe Area Simulator: StatusBar.getInfo called for ${device.name}`);
@@ -49,4 +58,5 @@ window.addEventListener('activateSafeArea', ((event: CustomEvent<DeviceConfig>) 
 window.addEventListener('resetSafeArea', () => {
   console.log('Capacitor Safe Area Simulator: Resetting Capacitor');
   window.Capacitor = originalCapacitor;
+  registeredPlugins = {}; // Clear registered plugins
 });
