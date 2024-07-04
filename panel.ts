@@ -2,9 +2,11 @@ import { devices } from './deviceConfigs';
 
 const deviceSelector = document.getElementById('deviceSelector') as HTMLSelectElement;
 const toggleSimulation = document.getElementById('toggleSimulation') as HTMLInputElement;
+const toggleCamera = document.getElementById('toggleCamera') as HTMLInputElement;
 const statusElement = document.getElementById('status') as HTMLDivElement;
 
 let isSimulationActive = false;
+let isCameraVisible = false;
 
 function updateStatus() {
   statusElement.textContent = isSimulationActive ? 'Simulation Active' : 'Simulation Inactive';
@@ -27,6 +29,11 @@ toggleSimulation.addEventListener('change', () => {
   isSimulationActive = toggleSimulation.checked;
   chrome.runtime.sendMessage({ action: 'toggleSimulation', isActive: isSimulationActive });
   updateStatus();
+});
+
+toggleCamera.addEventListener('change', () => {
+  isCameraVisible = toggleCamera.checked;
+  chrome.runtime.sendMessage({ action: 'toggleCamera', isVisible: isCameraVisible });
 });
 
 chrome.runtime.onMessage.addListener((message) => {

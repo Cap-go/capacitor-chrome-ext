@@ -2,6 +2,7 @@
 import { DeviceConfig, devices } from './deviceConfigs';
 
 let isActive = false;
+let isCameraVisible = false;
 let currentDevice: DeviceConfig = devices[0];
 
 function updateIcon(tabId: number) {
@@ -45,7 +46,7 @@ function applySimulation(tabId: number) {
     }
   `;
 
-  if (camera) {
+  if (camera && isCameraVisible) {
     css += `
       body::before {
         content: '';
@@ -70,11 +71,12 @@ function applySimulation(tabId: number) {
 
   chrome.scripting.executeScript({
     target: { tabId: tabId },
-    func: (device) => {
+    func: (device, cameraVisible) => {
       console.log(`Capacitor Safe Area Simulator: Activated for ${device.name}`);
-      window.dispatchEvent(new CustomEvent('activateSafeArea', { detail: device }));
+      console.log(`Camera visible: ${cameraVisible}`);
+      window.dispatchEvent(new CustomEvent('activateSafeArea', { detail: { device, cameraVisible } }));
     },
-    args: [currentDevice]
+    args: [currentDevice, isCameraVisible]
   });
 }
 
@@ -138,6 +140,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         chrome.tabs.reload(tabs[0].id);
       }
     });
+  } else if (message.action === 'toggleCamera') {
+    isCameraVisible = message.isVisible;
+    if (isActive) {
+      chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+        if (tabs[0] && tabs[0].id) {
+          removeSimulation(tabs[0].id);
+          applySimulation(tabs[0].id);
+          chrome.tabs.reload(tabs[0].id);
+        }
+      });
+    }
   }
 });
 
