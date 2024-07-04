@@ -1,17 +1,24 @@
 /// <reference types="@capacitor/core"/>
+/// <reference path="deviceConfigs.ts" />
+import { Capacitor } from '@capacitor/core';
+import { DeviceConfig } from './deviceConfigs';
 
-interface Window {
-  Capacitor: typeof import('@capacitor/core').Capacitor;
+declare global {
+  interface Window {
+    Capacitor: typeof Capacitor;
+  }
 }
+
 
 const originalCapacitor = window.Capacitor;
 
-function overrideSafeArea() {
+function overrideSafeArea(device: DeviceConfig) {
+  console.log(`Capacitor Safe Area Simulator: Overriding Capacitor for ${device.name}`);
   if (!window.Capacitor) {
     (window as any).Capacitor = {};
   }
 
-  window.Capacitor.getPlatform = () => 'ios';
+  window.Capacitor.getPlatform = () => device.name.toLowerCase().includes('iphone') ? 'ios' : 'android';
   window.Capacitor.isNativePlatform = () => true;
   window.Capacitor.isPluginAvailable = () => true;
 
@@ -19,24 +26,28 @@ function overrideSafeArea() {
     ...window.Capacitor.Plugins,
     StatusBar: {
       ...window.Capacitor.Plugins?.StatusBar,
-      getInfo: async () => ({ statusBarHeight: 44 }),
+      getInfo: async () => {
+        console.log(`Capacitor Safe Area Simulator: StatusBar.getInfo called for ${device.name}`);
+        return { statusBarHeight: device.safeArea.top };
+      },
     },
     SafeArea: {
       ...window.Capacitor.Plugins?.SafeArea,
-      getSafeAreaInsets: async () => ({
-        insets: {
-          top: 44,
-          right: 0,
-          bottom: 34,
-          left: 0
-        }
-      }),
+      getSafeAreaInsets: async () => {
+        console.log(`Capacitor Safe Area Simulator: SafeArea.getSafeAreaInsets called for ${device.name}`);
+        return {
+          insets: device.safeArea
+        };
+      },
     },
   };
 }
 
-overrideSafeArea();
+window.addEventListener('activateSafeArea', ((event: CustomEvent<DeviceConfig>) => {
+  overrideSafeArea(event.detail);
+}) as EventListener);
 
 window.addEventListener('resetSafeArea', () => {
+  console.log('Capacitor Safe Area Simulator: Resetting Capacitor');
   window.Capacitor = originalCapacitor;
 });
