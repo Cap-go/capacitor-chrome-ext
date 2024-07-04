@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 esbuild.build({
-  entryPoints: ['background.ts', 'content.ts', 'devtools.ts', 'devtools_page.ts'],
+  entryPoints: ['background.ts', 'content.ts', 'devtools_page.ts', 'panel.ts'],
   bundle: true,
   outdir: 'dist',
   target: 'chrome91',
@@ -23,9 +23,13 @@ esbuild.build({
     },
   }],
 }).then(() => {
-  // Copy devtools_page.html to dist
-  fs.copyFileSync('devtools_page.html', path.join('dist', 'devtools_page.html'));
+  // Copy HTML files to dist
+  ['devtools_page.html', 'panel.html'].forEach(file => {
+    fs.copyFileSync(file, path.join('dist', file));
+  });
 
-  // Copy assets folder to dist
-  fs.cpSync('assets', 'dist/assets', { recursive: true });
+  // Copy assets folder to dist if it exists
+  if (fs.existsSync('assets')) {
+    fs.cpSync('assets', 'dist/assets', { recursive: true });
+  }
 }).catch(() => process.exit(1));
