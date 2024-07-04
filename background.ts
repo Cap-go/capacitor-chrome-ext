@@ -38,14 +38,50 @@ function applySafeAreaAndCamera(tabId: number) {
   const { safeArea, camera } = currentDevice;
   let css = `
     :root {
+      /* Ionic safe area variables */
+      --ion-safe-area-top: ${safeArea.top}px;
+      --ion-safe-area-right: ${safeArea.right}px;
+      --ion-safe-area-bottom: ${safeArea.bottom}px;
+      --ion-safe-area-left: ${safeArea.left}px;
+
+      /* Konsta UI safe area variables */
+      --k-safe-area-top: ${safeArea.top}px;
+      --k-safe-area-right: ${safeArea.right}px;
+      --k-safe-area-bottom: ${safeArea.bottom}px;
+      --k-safe-area-left: ${safeArea.left}px;
+
+      /* General safe area env() variables */
       --safe-area-inset-top: ${safeArea.top}px;
       --safe-area-inset-right: ${safeArea.right}px;
       --safe-area-inset-bottom: ${safeArea.bottom}px;
       --safe-area-inset-left: ${safeArea.left}px;
     }
+
+    /* Override env() function for testing purposes */
+    @supports (top: env(safe-area-inset-top)) {
+      :root {
+        --safe-area-inset-top: env(safe-area-inset-top);
+        --safe-area-inset-right: env(safe-area-inset-right);
+        --safe-area-inset-bottom: env(safe-area-inset-bottom);
+        --safe-area-inset-left: env(safe-area-inset-left);
+      }
+    }
+
+    /* Ensure Konsta UI picks up our simulated values */
+    .safe-areas {
+      --k-safe-area-top: var(--safe-area-inset-top);
+      --k-safe-area-right: var(--safe-area-inset-right);
+      --k-safe-area-bottom: var(--safe-area-inset-bottom);
+      --k-safe-area-left: var(--safe-area-inset-left);
+    }
+
+    /* Basic body padding for demonstration */
     body {
-      padding: var(--safe-area-inset-top) var(--safe-area-inset-right) var(--safe-area-inset-bottom) var(--safe-area-inset-left) !important;
-      box-sizing: border-box !important;
+      padding-top: var(--safe-area-inset-top);
+      padding-right: var(--safe-area-inset-right);
+      padding-bottom: var(--safe-area-inset-bottom);
+      padding-left: var(--safe-area-inset-left);
+      box-sizing: border-box;
     }
   `;
 
@@ -95,22 +131,34 @@ function applySimulation(tabId: number) {
 }
 
 function removeSimulation(tabId: number) {
-  chrome.scripting.removeCSS({
+  const resetCSS = `
+    :root {
+      --ion-safe-area-top: 0px;
+      --ion-safe-area-right: 0px;
+      --ion-safe-area-bottom: 0px;
+      --ion-safe-area-left: 0px;
+
+      --k-safe-area-top: 0px;
+      --k-safe-area-right: 0px;
+      --k-safe-area-bottom: 0px;
+      --k-safe-area-left: 0px;
+
+      --safe-area-inset-top: 0px;
+      --safe-area-inset-right: 0px;
+      --safe-area-inset-bottom: 0px;
+      --safe-area-inset-left: 0px;
+    }
+    body {
+      padding: 0 !important;
+    }
+    body::before {
+      display: none !important;
+    }
+  `;
+
+  chrome.scripting.insertCSS({
     target: { tabId: tabId },
-    css: `
-      :root {
-        --safe-area-inset-top: 0px;
-        --safe-area-inset-right: 0px;
-        --safe-area-inset-bottom: 0px;
-        --safe-area-inset-left: 0px;
-      }
-      body {
-        padding: 0 !important;
-      }
-      body::before {
-        display: none !important;
-      }
-    `
+    css: resetCSS
   });
 
   chrome.scripting.executeScript({
