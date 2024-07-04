@@ -9,7 +9,6 @@ declare global {
   }
 }
 
-
 const originalCapacitor = window.Capacitor;
 
 function overrideSafeArea(device: DeviceConfig) {
@@ -22,29 +21,29 @@ function overrideSafeArea(device: DeviceConfig) {
   window.Capacitor.isNativePlatform = () => true;
   window.Capacitor.isPluginAvailable = () => true;
 
-  window.Capacitor.Plugins = {
-    ...window.Capacitor.Plugins,
-    StatusBar: {
-      ...window.Capacitor.Plugins?.StatusBar,
-      getInfo: async () => {
-        console.log(`Capacitor Safe Area Simulator: StatusBar.getInfo called for ${device.name}`);
-        return { statusBarHeight: device.safeArea.top };
-      },
-    },
-    SafeArea: {
-      ...window.Capacitor.Plugins?.SafeArea,
-      getSafeAreaInsets: async () => {
-        console.log(`Capacitor Safe Area Simulator: SafeArea.getSafeAreaInsets called for ${device.name}`);
-        return {
-          insets: device.safeArea
-        };
-      },
-    },
+  // Use registerPlugin instead of accessing Plugins directly
+  const StatusBar: any = Capacitor.registerPlugin('StatusBar');
+  const SafeArea: any = Capacitor.registerPlugin('SafeArea');
+
+  StatusBar.getInfo = async () => {
+    console.log(`Capacitor Safe Area Simulator: StatusBar.getInfo called for ${device.name}`);
+    return { statusBarHeight: device.safeArea.top };
+  };
+
+  SafeArea.getSafeAreaInsets = async () => {
+    console.log(`Capacitor Safe Area Simulator: SafeArea.getSafeAreaInsets called for ${device.name}`);
+    return {
+      insets: device.safeArea
+    };
   };
 }
 
 window.addEventListener('activateSafeArea', ((event: CustomEvent<DeviceConfig>) => {
-  overrideSafeArea(event.detail);
+  if (event.detail) {
+    overrideSafeArea(event.detail);
+  } else {
+    console.error('Device information not received in activateSafeArea event');
+  }
 }) as EventListener);
 
 window.addEventListener('resetSafeArea', () => {

@@ -5,7 +5,8 @@ let isActive = false;
 let isCameraVisible = false;
 let currentDevice: DeviceConfig = devices[0];
 
-function updateIcon(tabId: number) {
+function updateIcon() {
+  console.log('Updating icon', isActive);
   const path = isActive ? {
     "16": "/assets/icon16_active.png",
     "48": "/assets/icon48_active.png",
@@ -15,24 +16,26 @@ function updateIcon(tabId: number) {
     "48": "/assets/icon48.png",
     "128": "/assets/icon128.png"
   };
-  chrome.action.setIcon({ path, tabId });
+  chrome.action.setIcon({ path });
 }
 
 function updateBadgeText() {
+  console.log('Updating badge text', currentDevice.name);
   chrome.action.setBadgeText({ text: isActive ? currentDevice.name.slice(0, 4) : '' });
 }
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.sync.set({ currentDevice: currentDevice });
+  chrome.storage.sync.set({ currentDevice: JSON.stringify(currentDevice) });
 });
 
 chrome.storage.sync.get(['currentDevice'], (result) => {
   if (result.currentDevice) {
-    currentDevice = result.currentDevice;
+    currentDevice = JSON.parse(result.currentDevice);
   }
 });
 
 function applySimulation(tabId: number) {
+  console.log('Applying simulation for device:', currentDevice.name);
   const { safeArea, camera } = currentDevice;
   let css = `
     :root {
@@ -74,7 +77,7 @@ function applySimulation(tabId: number) {
     func: (device, cameraVisible) => {
       console.log(`Capacitor Safe Area Simulator: Activated for ${device.name}`);
       console.log(`Camera visible: ${cameraVisible}`);
-      window.dispatchEvent(new CustomEvent('activateSafeArea', { detail: { device, cameraVisible } }));
+      window.dispatchEvent(new CustomEvent('activateSafeArea', { detail: device }));
     },
     args: [currentDevice, isCameraVisible]
   });
@@ -120,14 +123,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
         isActive = true;
         applySimulation(tabs[0].id);
-        updateIcon(tabs[0].id);
-        chrome.tabs.reload(tabs[0].id);
+        updateIcon();
       }
     });
     // Notify all DevTools instances about the change
     chrome.runtime.sendMessage({ action: 'updateDeviceSelection', deviceIndex: message.deviceIndex });
   } else if (message.action === 'toggleSimulation') {
-    isActive = !isActive;
+    isActive = message.isActive;
     chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
       if (tabs[0] && tabs[0].id) {
         if (isActive) {
@@ -135,9 +137,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         } else {
           removeSimulation(tabs[0].id);
         }
-        updateIcon(tabs[0].id);
+        updateIcon();
         updateBadgeText();
-        chrome.tabs.reload(tabs[0].id);
       }
     });
   } else if (message.action === 'toggleCamera') {
@@ -147,7 +148,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (tabs[0] && tabs[0].id) {
           removeSimulation(tabs[0].id);
           applySimulation(tabs[0].id);
-          chrome.tabs.reload(tabs[0].id);
         }
       });
     }
