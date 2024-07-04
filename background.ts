@@ -50,18 +50,23 @@ function applySafeAreaAndCamera(tabId: number) {
   `;
 
   if (camera && isCameraVisible) {
+    const left = camera.left !== undefined 
+      ? `left: ${camera.left}px;` 
+      : 'left: 50%; transform: translateX(-50%);';
+    const borderRadius = camera.shape === 'round' 
+      ? '50%' 
+      : `${camera.height / 2}px`;
+
     css += `
       body::before {
         content: '';
         position: fixed;
-        top: 0;
-        left: 50%;
-        transform: translateX(-50%);
+        top: ${camera.top}px;
+        ${left}
         width: ${camera.width}px;
         height: ${camera.height}px;
         background-color: #000;
-        border-bottom-left-radius: 10px;
-        border-bottom-right-radius: 10px;
+        border-radius: ${borderRadius};
         z-index: 10000;
       }
     `;
@@ -100,10 +105,10 @@ function removeSimulation(tabId: number) {
         --safe-area-inset-left: 0px;
       }
       body {
-        padding: 0;
+        padding: 0 !important;
       }
       body::before {
-        display: none;
+        display: none !important;
       }
     `
   });
