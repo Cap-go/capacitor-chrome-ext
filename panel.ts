@@ -1,7 +1,15 @@
 import { devices } from './deviceConfigs';
 
 const deviceSelector = document.getElementById('deviceSelector') as HTMLSelectElement;
-const toggleButton = document.getElementById('toggleSimulation') as HTMLButtonElement;
+const toggleSimulation = document.getElementById('toggleSimulation') as HTMLInputElement;
+const statusElement = document.getElementById('status') as HTMLDivElement;
+
+let isSimulationActive = false;
+
+function updateStatus() {
+  statusElement.textContent = isSimulationActive ? 'Simulation Active' : 'Simulation Inactive';
+  statusElement.className = isSimulationActive ? 'font-bold text-green-500' : 'font-bold text-red-500';
+}
 
 devices.forEach((device, index) => {
   const option = document.createElement('option');
@@ -15,14 +23,21 @@ deviceSelector.addEventListener('change', (event) => {
   chrome.runtime.sendMessage({ action: 'changeDevice', deviceIndex: selectedIndex });
 });
 
-toggleButton.addEventListener('click', () => {
-  chrome.runtime.sendMessage({ action: 'toggleSimulation' });
+toggleSimulation.addEventListener('change', () => {
+  isSimulationActive = toggleSimulation.checked;
+  chrome.runtime.sendMessage({ action: 'toggleSimulation', isActive: isSimulationActive });
+  updateStatus();
 });
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message.action === 'updateDeviceSelection') {
     deviceSelector.value = message.deviceIndex.toString();
+  } else if (message.action === 'updateSimulationStatus') {
+    isSimulationActive = message.isActive;
+    toggleSimulation.checked = isSimulationActive;
+    updateStatus();
   }
 });
 
-console.log('Panel script loaded');
+// Initialize status
+updateStatus();

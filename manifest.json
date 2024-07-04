@@ -6,8 +6,7 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "storage",
-    "contextMenus"
+    "storage"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -35,8 +34,10 @@
     "48": "assets/icon48.png",
     "128": "assets/icon128.png"
   },
-  "web_accessible_resources": [{
-    "resources": ["dist/*", "assets/*"],
-    "matches": ["<all_urls>"]
-  }]
+  "web_accessible_resources": [
+    {
+      "resources": ["dist/*", "assets/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }
