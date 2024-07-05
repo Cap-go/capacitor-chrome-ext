@@ -64,6 +64,12 @@ export function applySafeAreaAndCamera(tabId: number) {
         z-index: 10000;
       }
     `;
+  } else {
+    css += `
+      body::before {
+        display: none;
+      }
+    `;
   }
 
   chrome.scripting.insertCSS({ target: { tabId }, css });

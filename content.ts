@@ -1,12 +1,15 @@
 import { Capacitor } from '@capacitor/core';
 import { DeviceConfig } from './deviceConfigs';
+
 declare global {
   interface Window {
     Capacitor: typeof Capacitor;
+    checkCameraElement: () => boolean;
   }
 }
 const originalCapacitor = window.Capacitor;
 const registeredPlugins: Record<string, any> = {};
+let lastCameraStatus = false;
 
 function getOrRegisterPlugin(pluginName: string) {
   if (!registeredPlugins[pluginName]) {
@@ -44,4 +47,32 @@ window.addEventListener('resetSafeArea', () => {
   console.log('Capacitor Safe Area Simulator: Resetting Capacitor');
   window.Capacitor = originalCapacitor;
   Object.keys(registeredPlugins).forEach(key => delete registeredPlugins[key]);
+});
+
+window.checkCameraElement = () => {
+  return !!document.querySelector('body::before');
+};
+
+window.addEventListener('activateSafeArea', ((event: CustomEvent<DeviceConfig>) => {
+  if (event.detail) {
+    overrideSafeArea(event.detail);
+    const currentCameraStatus = window.checkCameraElement();
+    if (currentCameraStatus !== lastCameraStatus) {
+      lastCameraStatus = currentCameraStatus;
+      chrome.runtime.sendMessage({ 
+        action: 'cameraElementStatus', 
+        isPresent: currentCameraStatus 
+      });
+    }
+  } else {
+    console.error('Device information not received in activateSafeArea event');
+  }
+}) as EventListener);
+
+// Add a new message listener for checking camera element
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'checkCameraElement') {
+    sendResponse({ isPresent: window.checkCameraElement() });
+  }
+  return true;
 });

@@ -43,12 +43,23 @@ toggleSimulation.addEventListener('change', () => {
 });
 
 toggleCamera.addEventListener('change', () => {
-  chrome.runtime.sendMessage({ action: 'toggleCamera', isVisible: toggleCamera.checked, tabId: currentTabId }, (response) => {
+  const isChecked = toggleCamera.checked;
+  chrome.runtime.sendMessage({ 
+    action: 'toggleCamera', 
+    isVisible: isChecked, 
+    tabId: currentTabId 
+  }, (response) => {
     if (chrome.runtime.lastError) {
       console.error(chrome.runtime.lastError);
+      // Revert the checkbox state if there was an error
+      toggleCamera.checked = !isChecked;
+    } else {
+      // Update the UI based on the response
+      updateUI(response.state.isActive, response.state.isCameraVisible, response.state.currentDeviceIndex);
     }
   });
 });
+
 
 // Initialize connection and state
 currentTabId = chrome.devtools.inspectedWindow.tabId;

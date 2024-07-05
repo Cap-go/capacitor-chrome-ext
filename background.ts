@@ -26,6 +26,14 @@ function handleMessage(message: any, sender: chrome.runtime.MessageSender, sendR
       break;
     case 'toggleCamera':
       setTabState(tabId, { isCameraVisible: message.isVisible });
+      applySimulation(tabId);
+      break;
+
+    case 'cameraElementStatus':
+      if (state.isCameraVisible !== message.isPresent) {
+        setTabState(tabId, { isCameraVisible: message.isPresent });
+        syncState(tabId);
+      }
       break;
     case 'getState':
       sendResponse({ 
@@ -38,13 +46,28 @@ function handleMessage(message: any, sender: chrome.runtime.MessageSender, sendR
 
   syncState(tabId);
 
-  if (getTabState(tabId).isActive) {
-    applySimulation(tabId);
-  } else {
-    removeSimulation(tabId);
-  }
+  sendResponse({ success: true, state: getTabState(tabId) });
+}
 
-  sendResponse({ success: true });
+// Add this function to periodically check the camera element status
+function startCameraElementCheck(tabId: number) {
+  const checkInterval = setInterval(() => {
+    chrome.tabs.get(tabId, (tab) => {
+      if (chrome.runtime.lastError || !tab) {
+        clearInterval(checkInterval);
+        return;
+      }
+      chrome.tabs.sendMessage(tabId, { action: 'checkCameraElement' }, (response) => {
+        if (response) {
+          const state = getTabState(tabId);
+          if (state.isCameraVisible !== response.isPresent) {
+            setTabState(tabId, { isCameraVisible: response.isPresent });
+            syncState(tabId);
+          }
+        }
+      });
+    });
+  }, 1000); // Check every second
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -75,6 +98,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     const state = getTabState(tabId);
     if (state.isActive) {
       applySimulation(tabId);
+      startCameraElementCheck(tabId);
     }
   }
 });
@@ -94,3 +118,4 @@ chrome.runtime.onStartup.addListener(() => {
     });
   });
 });
+
