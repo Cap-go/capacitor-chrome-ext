@@ -111,3 +111,41 @@ chrome.runtime.onStartup.addListener(() => {
   });
 });
 
+
+async function cleanupSimulation(tabId: number) {
+  const state = getTabState(tabId);
+  if (state.isActive) {
+    await removeSimulation(tabId);
+    setTabState(tabId, { isActive: false });
+    syncState(tabId);
+  }
+}
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === "devtools-page") {
+    let tabId: number | undefined;
+
+    port.onMessage.addListener((message) => {
+      if (message.tabId) {
+        tabId = message.tabId;
+      }
+    });
+
+    port.onDisconnect.addListener(() => {
+      if (tabId !== undefined) {
+        cleanupSimulation(tabId);
+      }
+    });
+  }
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  cleanupSimulation(tabId);
+  chrome.storage.local.remove(tabId.toString());
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'loading') {
+    cleanupSimulation(tabId);
+  }
+});
