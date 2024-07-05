@@ -7,8 +7,6 @@ const toggleSimulation = document.getElementById('toggleSimulation') as HTMLInpu
 const toggleCamera = document.getElementById('toggleCamera') as HTMLInputElement;
 const statusElement = document.getElementById('status') as HTMLDivElement;
 
-let currentTabId: number;
-
 function updateUI(isActive: boolean, isCameraVisible: boolean, currentDevice: DeviceConfig | null) {
   toggleSimulation.checked = isActive;
   toggleCamera.checked = isCameraVisible;
@@ -24,6 +22,8 @@ function updateUI(isActive: boolean, isCameraVisible: boolean, currentDevice: De
     }
   } else {
     console.warn('No current device provided');
+    // Set a default device if none is provided
+    deviceSelector.value = "0";
   }
 }
 
@@ -106,7 +106,6 @@ chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
     console.error('No active tab found');
     return;
   }
-  currentTabId = tabs[0].id;
   try {
     const response = await sendMessage({ action: 'getState' });
     console.log('Initial state:', response);

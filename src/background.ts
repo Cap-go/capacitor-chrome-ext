@@ -9,6 +9,8 @@ async function handleMessage(tabId: number, message: any): Promise<any> {
   const state = getTabState(tabId);
 
   switch (message.action) {
+    case 'getState':
+      return { success: true, state: state };
     case 'changeDevice':
       const newDevice = devices[message.deviceIndex];
       if (newDevice) {
@@ -34,9 +36,9 @@ async function handleMessage(tabId: number, message: any): Promise<any> {
       throw new Error('Unknown action');
   }
 
-  syncState(tabId);
   return { success: true, state: getTabState(tabId) };
 }
+
 
 function stopCameraElementCheck(tabId: number) {
   const state = getTabState(tabId);

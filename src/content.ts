@@ -84,24 +84,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       console.log('Checking simulation status:', status);
       sendResponse(status);
       break;
+    case 'changeDevice':
     case 'toggleSimulation':
-      console.log('Toggling simulation:', message.isActive);
-      // Implement the toggle simulation logic here
-      window.setSimulationStatus({
-        ...window.checkSimulationStatus(),
-        isActive: message.isActive
-      });
-      sendResponse({success: true, state: window.checkSimulationStatus()});
-      break;
     case 'toggleCamera':
-      console.log('Toggling camera:', message.isVisible);
-      // Implement the toggle camera logic here
-      window.setSimulationStatus({
-        ...window.checkSimulationStatus(),
-        isCameraVisible: message.isVisible
-      });
-      sendResponse({success: true, state: window.checkSimulationStatus()});
-      break;
+      // Forward these actions to the background script
+      chrome.runtime.sendMessage(message, sendResponse);
+      return true; // Keeps the message channel open for the asynchronous response
     default:
       console.log('Unhandled message action:', message.action);
       sendResponse({success: false, error: 'Unhandled message action'});
@@ -109,5 +97,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return true; // Indicates that we will send a response asynchronously
 });
+
 
 console.log('Content script loaded');

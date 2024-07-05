@@ -16,7 +16,7 @@ export function getTabState(tabId: number): TabState {
     tabStates[tabId] = {
       isActive: false,
       isCameraVisible: false,
-      currentDevice: devices[0] // Make sure this is the full device object
+      currentDevice: devices[0] // Set the first device as default
     };
   }
   return tabStates[tabId];
