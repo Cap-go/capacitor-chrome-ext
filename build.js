@@ -1,13 +1,18 @@
 const esbuild = require('esbuild');
-const fs = require('fs');
-const path = require('path');
+const { readFileSync, writeFileSync, copyFileSync, existsSync, cpSync } = require('node:fs');
+const path = require('node:path');
 const postcss = require('postcss');
 const tailwindcss = require('tailwindcss');
 const autoprefixer = require('autoprefixer');
 
 // Build JavaScript/TypeScript files
 esbuild.build({
-  entryPoints: ['background.ts', 'content.ts', 'devtools_page.ts', 'panel.ts'],
+  entryPoints: [
+    'src/background.ts',
+    'src/content.ts',
+    'src/devtools_page.ts',
+    'src/panel.ts'
+  ],
   bundle: true,
   outdir: 'dist',
   target: 'chrome91',
@@ -28,11 +33,11 @@ esbuild.build({
   }],
 }).then(() => {
   // Process CSS with Tailwind
-  const css = fs.readFileSync('styles.css', 'utf8');
+  const css = readFileSync('src/styles.css', 'utf8');
   postcss([tailwindcss, autoprefixer])
-    .process(css, { from: 'styles.css', to: 'dist/styles.css' })
+    .process(css, { from: 'src/styles.css', to: 'dist/styles.css' })
     .then(result => {
-      fs.writeFileSync('dist/styles.css', result.css);
+      writeFileSync('dist/styles.css', result.css);
       console.log('CSS processed and written to dist/styles.css');
     })
     .catch(error => {
@@ -41,13 +46,13 @@ esbuild.build({
 
   // Copy HTML files
   ['devtools_page.html', 'panel.html'].forEach(file => {
-    fs.copyFileSync(file, path.join('dist', file));
+    copyFileSync(path.join('src', file), path.join('dist', file));
     console.log(`Copied ${file} to dist/`);
   });
 
   // Copy assets folder to dist if it exists
-  if (fs.existsSync('assets')) {
-    fs.cpSync('assets', 'dist/assets', { recursive: true });
+  if (existsSync('src/assets')) {
+    cpSync('src/assets', 'dist/assets', { recursive: true });
     console.log('Copied assets to dist/assets');
   }
 }).catch((error) => {
