@@ -17,6 +17,11 @@ export interface DeviceConfig {
 
 export const devices: DeviceConfig[] = [
   {
+    name: "iPhone 14 Pro Max",
+    safeArea: { top: 59, right: 0, bottom: 34, left: 0 },
+    camera: { top: 11, width: 126, height: 37, shape: 'pill' }
+  },
+  {
     name: "iPhone SE",
     safeArea: { top: 20, right: 0, bottom: 0, left: 0 }
   },
@@ -29,11 +34,6 @@ export const devices: DeviceConfig[] = [
     name: "iPhone 12 Pro",
     safeArea: { top: 47, right: 0, bottom: 34, left: 0 },
     camera: { top: 0, width: 156, height: 34, shape: 'pill' }
-  },
-  {
-    name: "iPhone 14 Pro Max",
-    safeArea: { top: 59, right: 0, bottom: 34, left: 0 },
-    camera: { top: 11, width: 126, height: 37, shape: 'pill' }
   },
   {
     name: "Pixel 7",
