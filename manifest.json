@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Capacitor Safe Area Simulator",
-  "version": "1.0",
+  "version": "1.0.1",
   "description": "Simulates safe areas for Capacitor apps on the web, works for Ionic Konsta UI and any other that use env vars for safe areas",
   "permissions": [
     "activeTab",
