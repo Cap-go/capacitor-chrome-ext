@@ -11,7 +11,13 @@ export async function applySimulation(tabId: number, device: DeviceConfig, isCam
     }
     
     await applySafeArea(tabId, device);
-    await applyCamera(tabId, device, isCameraVisible);
+    
+    // Only apply camera if the device has one and isCameraVisible is true
+    if (device.camera && isCameraVisible) {
+      await applyCamera(tabId, device, true);
+    } else {
+      await removeCamera(tabId);
+    }
     
     await chrome.scripting.executeScript({
       target: { tabId },
@@ -20,11 +26,11 @@ export async function applySimulation(tabId: number, device: DeviceConfig, isCam
         window.dispatchEvent(new CustomEvent('activateSafeArea', { detail: device }));
         (window as any).setSimulationStatus({
           isActive: true,
-          isCameraVisible: cameraVisible,
+          isCameraVisible: cameraVisible && !!device.camera,
           currentDeviceName: device.name
         });
       },
-      args: [device, isCameraVisible]
+      args: [device, isCameraVisible && !!device.camera]
     });
   } catch (error) {
     console.error('Error in applySimulation:', error);

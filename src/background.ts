@@ -14,8 +14,13 @@ async function handleMessage(tabId: number, message: any): Promise<any> {
     case 'changeDevice':
       const newDevice = devices[message.deviceIndex];
       if (newDevice) {
-        setTabState(tabId, { currentDevice: newDevice, isActive: true });
-        await applySimulation(tabId, newDevice, state.isCameraVisible);
+        const newCameraVisible = newDevice.camera ? state.isCameraVisible : false;
+        setTabState(tabId, { 
+          currentDevice: newDevice, 
+          isActive: true,
+          isCameraVisible: newCameraVisible
+        });
+        await applySimulation(tabId, newDevice, newCameraVisible);
       } else {
         throw new Error('Invalid device index');
       }
@@ -25,12 +30,16 @@ async function handleMessage(tabId: number, message: any): Promise<any> {
       if (message.isActive) {
         await applySimulation(tabId, state.currentDevice, state.isCameraVisible);
       } else {
-        removeSimulation(tabId);
+        await removeSimulation(tabId);
       }
       break;
     case 'toggleCamera':
-      setTabState(tabId, { isCameraVisible: message.isVisible });
-      await applySimulation(tabId, state.currentDevice, message.isVisible);
+      if (state.currentDevice.camera) {
+        setTabState(tabId, { isCameraVisible: message.isVisible });
+        await applySimulation(tabId, state.currentDevice, message.isVisible);
+      } else {
+        console.warn('Attempted to toggle camera on a device without camera');
+      }
       break;
     default:
       throw new Error('Unknown action');

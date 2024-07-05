@@ -23,5 +23,6 @@ export function getTabState(tabId: number): TabState {
 }
 
 export function setTabState(tabId: number, state: Partial<TabState>) {
-  tabStates[tabId] = { ...getTabState(tabId), ...state };
+  const currentState = getTabState(tabId);
+  tabStates[tabId] = { ...currentState, ...state };
 }

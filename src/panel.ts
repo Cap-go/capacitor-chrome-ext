@@ -10,6 +10,7 @@ const statusElement = document.getElementById('status') as HTMLDivElement;
 function updateUI(isActive: boolean, isCameraVisible: boolean, currentDevice: DeviceConfig | null) {
   toggleSimulation.checked = isActive;
   toggleCamera.checked = isCameraVisible;
+  toggleCamera.disabled = !currentDevice?.camera;
   statusElement.textContent = isActive ? 'Simulation Active' : 'Simulation Inactive';
   statusElement.className = isActive ? 'font-bold text-green-500' : 'font-bold text-red-500';
   
@@ -22,7 +23,6 @@ function updateUI(isActive: boolean, isCameraVisible: boolean, currentDevice: De
     }
   } else {
     console.warn('No current device provided');
-    // Set a default device if none is provided
     deviceSelector.value = "0";
   }
 }
@@ -64,6 +64,8 @@ deviceSelector.addEventListener('change', async (event) => {
     console.log('Device change response:', response);
     if (response && response.success) {
       updateUI(response.state.isActive, response.state.isCameraVisible, response.state.currentDevice);
+    } else {
+      console.error('Failed to change device:', response.error);
     }
   } catch (error) {
     console.error('Error changing device:', error);
@@ -78,6 +80,9 @@ toggleSimulation.addEventListener('change', async () => {
     console.log('Toggle simulation response:', response);
     if (response && response.success) {
       updateUI(response.state.isActive, response.state.isCameraVisible, response.state.currentDevice);
+    } else {
+      console.error('Failed to toggle simulation:', response.error);
+      toggleSimulation.checked = !isChecked; // Revert the checkbox state
     }
   } catch (error) {
     console.error('Error toggling simulation:', error);
