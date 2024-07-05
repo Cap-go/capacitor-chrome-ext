@@ -1,15 +1,18 @@
+// content.ts
+
 import { Capacitor } from '@capacitor/core';
 import { DeviceConfig } from './deviceConfigs';
 
 declare global {
   interface Window {
     Capacitor: typeof Capacitor;
-    checkCameraElement: () => boolean;
+    checkSimulationStatus: () => { isActive: boolean; isCameraVisible: boolean; currentDeviceName: string };
+    setSimulationStatus: (status: { isActive: boolean; isCameraVisible: boolean; currentDeviceName: string }) => void;
   }
 }
+
 const originalCapacitor = window.Capacitor;
 const registeredPlugins: Record<string, any> = {};
-let lastCameraStatus = false;
 
 function getOrRegisterPlugin(pluginName: string) {
   if (!registeredPlugins[pluginName]) {
@@ -35,9 +38,27 @@ function overrideSafeArea(device: DeviceConfig) {
   SafeArea.getSafeAreaInsets = async () => ({ insets: device.safeArea });
 }
 
+window.setSimulationStatus = (status) => {
+  document.documentElement.style.setProperty('--simulation-active', status.isActive ? 'true' : 'false');
+  document.documentElement.style.setProperty('--camera-visible', status.isCameraVisible ? 'true' : 'false');
+  document.documentElement.style.setProperty('--current-device', status.currentDeviceName);
+};
+
+window.checkSimulationStatus = () => {
+  const isActive = document.documentElement.style.getPropertyValue('--simulation-active') === 'true';
+  const isCameraVisible = document.documentElement.style.getPropertyValue('--camera-visible') === 'true';
+  const currentDeviceName = document.documentElement.style.getPropertyValue('--current-device');
+  return { isActive, isCameraVisible, currentDeviceName };
+};
+
 window.addEventListener('activateSafeArea', ((event: CustomEvent<DeviceConfig>) => {
   if (event.detail) {
     overrideSafeArea(event.detail);
+    window.setSimulationStatus({
+      isActive: true,
+      isCameraVisible: !!event.detail.camera,
+      currentDeviceName: event.detail.name
+    });
   } else {
     console.error('Device information not received in activateSafeArea event');
   }
@@ -47,32 +68,46 @@ window.addEventListener('resetSafeArea', () => {
   console.log('Capacitor Safe Area Simulator: Resetting Capacitor');
   window.Capacitor = originalCapacitor;
   Object.keys(registeredPlugins).forEach(key => delete registeredPlugins[key]);
+  window.setSimulationStatus({
+    isActive: false,
+    isCameraVisible: false,
+    currentDeviceName: ''
+  });
 });
 
-window.checkCameraElement = () => {
-  return !!document.querySelector('body::before');
-};
-
-window.addEventListener('activateSafeArea', ((event: CustomEvent<DeviceConfig>) => {
-  if (event.detail) {
-    overrideSafeArea(event.detail);
-    const currentCameraStatus = window.checkCameraElement();
-    if (currentCameraStatus !== lastCameraStatus) {
-      lastCameraStatus = currentCameraStatus;
-      chrome.runtime.sendMessage({ 
-        action: 'cameraElementStatus', 
-        isPresent: currentCameraStatus 
-      });
-    }
-  } else {
-    console.error('Device information not received in activateSafeArea event');
-  }
-}) as EventListener);
-
-// Add a new message listener for checking camera element
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'checkCameraElement') {
-    sendResponse({ isPresent: window.checkCameraElement() });
+  console.log('Content script received message:', message);
+
+  switch (message.action) {
+    case 'checkSimulationStatus':
+      const status = window.checkSimulationStatus();
+      console.log('Checking simulation status:', status);
+      sendResponse(status);
+      break;
+    case 'toggleSimulation':
+      console.log('Toggling simulation:', message.isActive);
+      // Implement the toggle simulation logic here
+      window.setSimulationStatus({
+        ...window.checkSimulationStatus(),
+        isActive: message.isActive
+      });
+      sendResponse({success: true, state: window.checkSimulationStatus()});
+      break;
+    case 'toggleCamera':
+      console.log('Toggling camera:', message.isVisible);
+      // Implement the toggle camera logic here
+      window.setSimulationStatus({
+        ...window.checkSimulationStatus(),
+        isCameraVisible: message.isVisible
+      });
+      sendResponse({success: true, state: window.checkSimulationStatus()});
+      break;
+    default:
+      console.log('Unhandled message action:', message.action);
+      sendResponse({success: false, error: 'Unhandled message action'});
   }
-  return true;
+
+  return true; // Indicates that we will send a response asynchronously
 });
+
+console.log('Content script loaded');

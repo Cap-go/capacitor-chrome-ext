@@ -1,10 +1,13 @@
 // simulationManager.ts
 import { DeviceConfig } from './deviceConfigs';
-import { getTabState } from './tabState';
 
-export function applySafeAreaAndCamera(tabId: number) {
-  const { safeArea, camera } = getTabState(tabId).currentDevice;
-  const isCameraVisible = getTabState(tabId).isCameraVisible;
+export function applySafeAreaAndCamera(tabId: number, device: DeviceConfig, isCameraVisible: boolean) {
+  console.log('Applying simulation:', { tabId, device, isCameraVisible });
+  if (!device || !device.safeArea) {
+    console.error('Invalid device configuration');
+    return;
+  }
+  const { safeArea, camera } = device;
 
   let css = `
     :root {
@@ -75,16 +78,40 @@ export function applySafeAreaAndCamera(tabId: number) {
   chrome.scripting.insertCSS({ target: { tabId }, css });
 }
 
-export function applySimulation(tabId: number) {
-  applySafeAreaAndCamera(tabId);
-  chrome.scripting.executeScript({
-    target: { tabId },
-    func: (device: DeviceConfig, cameraVisible: boolean) => {
-      console.log(`Capacitor Safe Area Simulator: Activated for ${device.name} and camera ${cameraVisible ? 'visible' : 'hidden'}`);
-      window.dispatchEvent(new CustomEvent('activateSafeArea', { detail: device }));
-    },
-    args: [getTabState(tabId).currentDevice, getTabState(tabId).isCameraVisible]
+async function ensureContentScriptLoaded(tabId: number): Promise<void> {
+  return new Promise((resolve) => {
+    chrome.tabs.executeScript(tabId, { file: 'content.js' }, () => {
+      resolve();
+    });
   });
+}
+
+export async function applySimulation(tabId: number, device: DeviceConfig, isCameraVisible: boolean) {
+  try {
+    if (!device) {
+      throw new Error('Invalid device configuration');
+    }
+    
+    await ensureContentScriptLoaded(tabId);
+    
+    applySafeAreaAndCamera(tabId, device, isCameraVisible);
+    
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: (device: DeviceConfig, cameraVisible: boolean) => {
+        console.log(`Capacitor Safe Area Simulator: Activated for ${device.name} and camera ${cameraVisible ? 'visible' : 'hidden'}`);
+        window.dispatchEvent(new CustomEvent('activateSafeArea', { detail: device }));
+        (window as any).setSimulationStatus({
+          isActive: true,
+          isCameraVisible: cameraVisible,
+          currentDeviceName: device.name
+        });
+      },
+      args: [device, isCameraVisible]
+    });
+  } catch (error) {
+    console.error('Error in applySimulation:', error);
+  }
 }
 
 export function removeSimulation(tabId: number) {
@@ -102,6 +129,21 @@ export function removeSimulation(tabId: number) {
   });
   chrome.scripting.executeScript({
     target: { tabId },
-    func: () => window.dispatchEvent(new Event('resetSafeArea'))
+    func: () => {
+      window.dispatchEvent(new Event('resetSafeArea'));
+      window.setSimulationStatus({
+        isActive: false,
+        isCameraVisible: false,
+        currentDeviceName: ''
+      });
+    }
+  });
+}
+
+export function updateSimulationStatus(tabId: number): Promise<{ isActive: boolean; isCameraVisible: boolean; currentDeviceName: string }> {
+  return new Promise((resolve) => {
+    chrome.tabs.sendMessage(tabId, { action: 'checkSimulationStatus' }, (response) => {
+      resolve(response);
+    });
   });
 }

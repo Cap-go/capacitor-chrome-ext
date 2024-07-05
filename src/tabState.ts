@@ -6,6 +6,7 @@ export interface TabState {
   isActive: boolean;
   isCameraVisible: boolean;
   currentDevice: DeviceConfig;
+  checkIntervalId?: number;
 }
 
 const tabStates: { [tabId: number]: TabState } = {};
@@ -15,7 +16,7 @@ export function getTabState(tabId: number): TabState {
     tabStates[tabId] = {
       isActive: false,
       isCameraVisible: false,
-      currentDevice: devices[0]
+      currentDevice: devices[0] // Make sure this is the full device object
     };
   }
   return tabStates[tabId];

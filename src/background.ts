@@ -5,62 +5,70 @@ import { getTabState, setTabState } from './tabState';
 import { syncState } from './uiManager';
 import { applySimulation, removeSimulation } from './simulationManager';
 
-function handleMessage(message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) {
-  const tabId = message.tabId || sender.tab?.id;
-  if (!tabId) {
-    sendResponse({ error: 'No tab ID provided' });
-    return;
-  }
-
+async function handleMessage(tabId: number, message: any): Promise<any> {
   const state = getTabState(tabId);
 
   switch (message.action) {
     case 'changeDevice':
-      setTabState(tabId, {
-        currentDevice: devices[message.deviceIndex],
-        isActive: true
-      });
+      const newDevice = devices[message.deviceIndex];
+      if (newDevice) {
+        setTabState(tabId, { currentDevice: newDevice, isActive: true });
+        await applySimulation(tabId, newDevice, state.isCameraVisible);
+      } else {
+        throw new Error('Invalid device index');
+      }
       break;
     case 'toggleSimulation':
       setTabState(tabId, { isActive: message.isActive });
+      if (message.isActive) {
+        await applySimulation(tabId, state.currentDevice, state.isCameraVisible);
+      } else {
+        removeSimulation(tabId);
+      }
       break;
     case 'toggleCamera':
       setTabState(tabId, { isCameraVisible: message.isVisible });
-      applySimulation(tabId);
+      await applySimulation(tabId, state.currentDevice, message.isVisible);
       break;
-
-    case 'cameraElementStatus':
-      if (state.isCameraVisible !== message.isPresent) {
-        setTabState(tabId, { isCameraVisible: message.isPresent });
-        syncState(tabId);
-      }
-      break;
-    case 'getState':
-      sendResponse({ 
-        isActive: state.isActive, 
-        isCameraVisible: state.isCameraVisible, 
-        currentDeviceIndex: devices.findIndex(d => d.name === state.currentDevice.name) 
-      });
-      return;
+    default:
+      throw new Error('Unknown action');
   }
 
   syncState(tabId);
-
-  sendResponse({ success: true, state: getTabState(tabId) });
+  return { success: true, state: getTabState(tabId) };
 }
 
-// Add this function to periodically check the camera element status
+function stopCameraElementCheck(tabId: number) {
+  const state = getTabState(tabId);
+  if (state.checkIntervalId) {
+    clearInterval(state.checkIntervalId);
+    setTabState(tabId, { ...state, checkIntervalId: undefined });
+  }
+}
+
+// Define the startCameraElementCheck function if not already defined
 function startCameraElementCheck(tabId: number) {
-  const checkInterval = setInterval(() => {
+  const state = getTabState(tabId);
+  
+  // Clear existing interval if it exists
+  if (state.checkIntervalId) {
+    clearInterval(state.checkIntervalId);
+  }
+
+  const checkIntervalId = setInterval(() => {
     chrome.tabs.get(tabId, (tab) => {
       if (chrome.runtime.lastError || !tab) {
-        clearInterval(checkInterval);
+        stopCameraElementCheck(tabId);
         return;
       }
       chrome.tabs.sendMessage(tabId, { action: 'checkCameraElement' }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('Error checking camera element:', chrome.runtime.lastError);
+          return;
+        }
         if (response) {
-          const state = getTabState(tabId);
-          if (state.isCameraVisible !== response.isPresent) {
+          const currentState = getTabState(tabId);
+          if (currentState.isCameraVisible !== response.isPresent) {
             setTabState(tabId, { isCameraVisible: response.isPresent });
             syncState(tabId);
           }
@@ -68,12 +76,39 @@ function startCameraElementCheck(tabId: number) {
       });
     });
   }, 1000); // Check every second
+
+  setTabState(tabId, { ...state, checkIntervalId });
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  handleMessage(message, sender, sendResponse);
-  return true;  // Indicates that we will send a response asynchronously
+  console.log('Received message in background:', message);
+
+  if (!message || typeof message !== 'object') {
+    console.error('Received invalid message');
+    sendResponse({error: 'Invalid message'});
+    return false;
+  }
+
+  const tabId = sender.tab?.id;
+  if (!tabId) {
+    console.error('Message received from unknown tab');
+    sendResponse({error: 'Unknown tab'});
+    return false;
+  }
+
+  // Handle the message asynchronously
+  handleMessage(tabId, message).then(response => {
+    console.log('Sending response:', response);
+    sendResponse(response);
+  }).catch(error => {
+    console.error('Error handling message:', error);
+    sendResponse({error: error.message});
+  });
+
+  // Return true to indicate that we will send a response asynchronously
+  return true;
 });
+
 
 // Initialize state when a new tab is created
 chrome.tabs.onCreated.addListener((tab) => {
@@ -89,6 +124,7 @@ chrome.tabs.onCreated.addListener((tab) => {
 
 // Clean up state when a tab is removed
 chrome.tabs.onRemoved.addListener((tabId) => {
+  stopCameraElementCheck(tabId);
   chrome.storage.local.remove(tabId.toString());
 });
 
@@ -97,8 +133,11 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete') {
     const state = getTabState(tabId);
     if (state.isActive) {
-      applySimulation(tabId);
+      applySimulation(tabId, state.currentDevice, state.isCameraVisible)
+        .catch(error => console.error('Error reapplying simulation:', error));
       startCameraElementCheck(tabId);
+    } else {
+      stopCameraElementCheck(tabId);
     }
   }
 });

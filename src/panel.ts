@@ -1,6 +1,6 @@
 // panel.ts
 
-import { devices } from './deviceConfigs';
+import { DeviceConfig, devices } from './deviceConfigs';
 
 const deviceSelector = document.getElementById('deviceSelector') as HTMLSelectElement;
 const toggleSimulation = document.getElementById('toggleSimulation') as HTMLInputElement;
@@ -8,14 +8,23 @@ const toggleCamera = document.getElementById('toggleCamera') as HTMLInputElement
 const statusElement = document.getElementById('status') as HTMLDivElement;
 
 let currentTabId: number;
-let port: chrome.runtime.Port;
 
-function updateUI(isActive: boolean, isCameraVisible: boolean, currentDeviceIndex: number) {
-  deviceSelector.value = currentDeviceIndex.toString();
+function updateUI(isActive: boolean, isCameraVisible: boolean, currentDevice: DeviceConfig | null) {
   toggleSimulation.checked = isActive;
   toggleCamera.checked = isCameraVisible;
   statusElement.textContent = isActive ? 'Simulation Active' : 'Simulation Inactive';
   statusElement.className = isActive ? 'font-bold text-green-500' : 'font-bold text-red-500';
+  
+  if (currentDevice) {
+    const deviceIndex = devices.findIndex(d => d.name === currentDevice.name);
+    if (deviceIndex !== -1) {
+      deviceSelector.value = deviceIndex.toString();
+    } else {
+      console.warn('Current device not found in the list:', currentDevice.name);
+    }
+  } else {
+    console.warn('No current device provided');
+  }
 }
 
 devices.forEach((device, index) => {
@@ -25,59 +34,94 @@ devices.forEach((device, index) => {
   deviceSelector.appendChild(option);
 });
 
-deviceSelector.addEventListener('change', (event) => {
+function sendMessage(message: any): Promise<any> {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs.length === 0) {
+        reject(new Error('No active tab found'));
+        return;
+      }
+      const activeTabId = tabs[0].id;
+      if (!activeTabId) {
+        reject(new Error('Active tab has no ID'));
+        return;
+      }
+      chrome.tabs.sendMessage(activeTabId, message, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve(response);
+        }
+      });
+    });
+  });
+}
+
+deviceSelector.addEventListener('change', async (event) => {
   const selectedIndex = parseInt((event.target as HTMLSelectElement).value);
-  chrome.runtime.sendMessage({ action: 'changeDevice', deviceIndex: selectedIndex, tabId: currentTabId }, (response) => {
-    if (chrome.runtime.lastError) {
-      console.error(chrome.runtime.lastError);
+  try {
+    const response = await sendMessage({ action: 'changeDevice', deviceIndex: selectedIndex });
+    console.log('Device change response:', response);
+    if (response && response.success) {
+      updateUI(response.state.isActive, response.state.isCameraVisible, response.state.currentDevice);
     }
-  });
-});
-
-toggleSimulation.addEventListener('change', () => {
-  chrome.runtime.sendMessage({ action: 'toggleSimulation', isActive: toggleSimulation.checked, tabId: currentTabId }, (response) => {
-    if (chrome.runtime.lastError) {
-      console.error(chrome.runtime.lastError);
-    }
-  });
-});
-
-toggleCamera.addEventListener('change', () => {
-  const isChecked = toggleCamera.checked;
-  chrome.runtime.sendMessage({ 
-    action: 'toggleCamera', 
-    isVisible: isChecked, 
-    tabId: currentTabId 
-  }, (response) => {
-    if (chrome.runtime.lastError) {
-      console.error(chrome.runtime.lastError);
-      // Revert the checkbox state if there was an error
-      toggleCamera.checked = !isChecked;
-    } else {
-      // Update the UI based on the response
-      updateUI(response.state.isActive, response.state.isCameraVisible, response.state.currentDeviceIndex);
-    }
-  });
-});
-
-
-// Initialize connection and state
-currentTabId = chrome.devtools.inspectedWindow.tabId;
-port = chrome.runtime.connect({ name: "devtools-page" });
-
-port.onMessage.addListener((message) => {
-  if (message.action === 'initState') {
-    updateUI(message.state.isActive, message.state.isCameraVisible, message.state.currentDeviceIndex);
+  } catch (error) {
+    console.error('Error changing device:', error);
   }
 });
 
-port.postMessage({ action: 'init', tabId: currentTabId });
+toggleSimulation.addEventListener('change', async () => {
+  const isChecked = toggleSimulation.checked;
+  console.log('Toggle simulation changed:', isChecked);
+  try {
+    const response = await sendMessage({ action: 'toggleSimulation', isActive: isChecked });
+    console.log('Toggle simulation response:', response);
+    if (response && response.success) {
+      updateUI(response.state.isActive, response.state.isCameraVisible, response.state.currentDevice);
+    }
+  } catch (error) {
+    console.error('Error toggling simulation:', error);
+    toggleSimulation.checked = !isChecked; // Revert the checkbox state
+  }
+});
 
-// Listen for state updates
-chrome.runtime.onMessage.addListener((message) => {
-  if (message.action === 'updateState' && message.tabId === currentTabId) {
-    const { isActive, isCameraVisible, currentDevice } = message.state;
-    const currentDeviceIndex = devices.findIndex(d => d.name === currentDevice.name);
-    updateUI(isActive, isCameraVisible, currentDeviceIndex);
+toggleCamera.addEventListener('change', async () => {
+  const isChecked = toggleCamera.checked;
+  console.log('Toggle camera changed:', isChecked);
+  try {
+    const response = await sendMessage({ action: 'toggleCamera', isVisible: isChecked });
+    console.log('Toggle camera response:', response);
+    if (response && response.success) {
+      updateUI(response.state.isActive, response.state.isCameraVisible, response.state.currentDevice);
+    }
+  } catch (error) {
+    console.error('Error toggling camera:', error);
+    toggleCamera.checked = !isChecked; // Revert the checkbox state
+  }
+});
+
+// Initialize the panel
+chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+  if (tabs.length === 0 || !tabs[0].id) {
+    console.error('No active tab found');
+    return;
+  }
+  currentTabId = tabs[0].id;
+  try {
+    const response = await sendMessage({ action: 'getState' });
+    console.log('Initial state:', response);
+    if (response && response.success) {
+      updateUI(response.state.isActive, response.state.isCameraVisible, response.state.currentDevice);
+    }
+  } catch (error) {
+    console.error('Error getting initial state:', error);
+  }
+});
+
+// Listen for state updates from the background script
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'updateState') {
+    console.log('Received state update:', message);
+    updateUI(message.state.isActive, message.state.isCameraVisible, message.state.currentDevice);
   }
 });
