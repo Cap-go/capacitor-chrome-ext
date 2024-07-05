@@ -1,21 +1,7 @@
 // uiManager.ts
 
 import { getTabState, setTabState, TabState } from './tabState';
-import { DeviceConfig, devices } from './deviceConfigs';
-
-export function updateIcon(tabId: number) {
-  const state = getTabState(tabId);
-  const path = state.isActive ? {
-    "16": "/assets/icon16_active.png",
-    "48": "/assets/icon48_active.png",
-    "128": "/assets/icon128_active.png"
-  } : {
-    "16": "/assets/icon16.png",
-    "48": "/assets/icon48.png",
-    "128": "/assets/icon128.png"
-  };
-  chrome.action.setIcon({ path, tabId });
-}
+import { devices } from './deviceConfigs';
 
 export function updateBadgeText(tabId: number) {
   const state = getTabState(tabId);
@@ -28,7 +14,6 @@ export function updateBadgeText(tabId: number) {
 export function syncState(tabId: number) {
   const state = getTabState(tabId);
   chrome.storage.local.set({ [tabId.toString()]: state });
-  updateIcon(tabId);
   updateBadgeText(tabId);
   notifyStateChange(tabId, state);
 }
