@@ -33,13 +33,12 @@ export function syncState(tabId: number) {
   notifyStateChange(tabId, state);
 }
 
-export function notifyStateChange(tabId: number, state: any) {
+export function notifyStateChange(tabId: number, state: TabState) {
   // Notify the content script
   chrome.tabs.sendMessage(tabId, { 
     action: 'updateState', 
     state: {
       isActive: state.isActive,
-      isCameraVisible: state.isCameraVisible,
       currentDeviceName: state.currentDevice.name
     }
   }).catch(error => console.error('Error notifying content script:', error));
@@ -50,7 +49,6 @@ export function notifyStateChange(tabId: number, state: any) {
     tabId,
     state: {
       isActive: state.isActive,
-      isCameraVisible: state.isCameraVisible,
       currentDevice: state.currentDevice
     }
   });
@@ -72,7 +70,6 @@ export async function initializeState(tabId: number) {
     // Set default state if not found
     setTabState(tabId, {
       isActive: false,
-      isCameraVisible: false,
       currentDevice: devices[0] // Set the first device as default
     });
   }

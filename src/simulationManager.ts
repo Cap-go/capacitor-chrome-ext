@@ -4,7 +4,7 @@ import { DeviceConfig } from './deviceConfigs';
 import { applySafeArea, removeSafeArea } from './safeAreaManager';
 import { applyCamera, removeCamera } from './cameraManager';
 
-export async function applySimulation(tabId: number, device: DeviceConfig, isCameraVisible: boolean) {
+export async function applySimulation(tabId: number, device: DeviceConfig) {
   try {
     if (!device || !device.safeArea) {
       throw new Error('Invalid device configuration');
@@ -12,8 +12,7 @@ export async function applySimulation(tabId: number, device: DeviceConfig, isCam
     
     await applySafeArea(tabId, device);
     
-    // Only apply camera if the device has one and isCameraVisible is true
-    if (device.camera && isCameraVisible) {
+    if (device.camera) {
       await applyCamera(tabId, device, true);
     } else {
       await removeCamera(tabId);
@@ -21,16 +20,16 @@ export async function applySimulation(tabId: number, device: DeviceConfig, isCam
     
     await chrome.scripting.executeScript({
       target: { tabId },
-      func: (device: DeviceConfig, cameraVisible: boolean) => {
-        console.log(`Capacitor Safe Area Simulator: Activated for ${device.name} and camera ${cameraVisible ? 'visible' : 'hidden'}`);
+      func: (device: DeviceConfig) => {
+        console.log(`Capacitor Safe Area Simulator: Activated for ${device.name}`);
         window.dispatchEvent(new CustomEvent('activateSafeArea', { detail: device }));
         (window as any).setSimulationStatus({
           isActive: true,
-          isCameraVisible: cameraVisible && !!device.camera,
+          isCameraVisible: !!device.camera,
           currentDeviceName: device.name
         });
       },
-      args: [device, isCameraVisible && !!device.camera]
+      args: [device]
     });
   } catch (error) {
     console.error('Error in applySimulation:', error);

@@ -14,13 +14,11 @@ async function handleMessage(tabId: number, message: any): Promise<any> {
     case 'changeDevice':
       const newDevice = devices[message.deviceIndex];
       if (newDevice) {
-        const newCameraVisible = newDevice.camera ? state.isCameraVisible : false;
         setTabState(tabId, { 
           currentDevice: newDevice, 
           isActive: true,
-          isCameraVisible: newCameraVisible
         });
-        await applySimulation(tabId, newDevice, newCameraVisible);
+        await applySimulation(tabId, newDevice);
       } else {
         throw new Error('Invalid device index');
       }
@@ -28,17 +26,9 @@ async function handleMessage(tabId: number, message: any): Promise<any> {
     case 'toggleSimulation':
       setTabState(tabId, { isActive: message.isActive });
       if (message.isActive) {
-        await applySimulation(tabId, state.currentDevice, state.isCameraVisible);
+        await applySimulation(tabId, state.currentDevice);
       } else {
         await removeSimulation(tabId);
-      }
-      break;
-    case 'toggleCamera':
-      if (state.currentDevice.camera) {
-        setTabState(tabId, { isCameraVisible: message.isVisible });
-        await applySimulation(tabId, state.currentDevice, message.isVisible);
-      } else {
-        console.warn('Attempted to toggle camera on a device without camera');
       }
       break;
     default:
@@ -46,49 +36,6 @@ async function handleMessage(tabId: number, message: any): Promise<any> {
   }
 
   return { success: true, state: getTabState(tabId) };
-}
-
-
-function stopCameraElementCheck(tabId: number) {
-  const state = getTabState(tabId);
-  if (state.checkIntervalId) {
-    clearInterval(state.checkIntervalId);
-    setTabState(tabId, { ...state, checkIntervalId: undefined });
-  }
-}
-
-// Define the startCameraElementCheck function if not already defined
-function startCameraElementCheck(tabId: number) {
-  const state = getTabState(tabId);
-  
-  // Clear existing interval if it exists
-  if (state.checkIntervalId) {
-    clearInterval(state.checkIntervalId);
-  }
-
-  const checkIntervalId = setInterval(() => {
-    chrome.tabs.get(tabId, (tab) => {
-      if (chrome.runtime.lastError || !tab) {
-        stopCameraElementCheck(tabId);
-        return;
-      }
-      chrome.tabs.sendMessage(tabId, { action: 'checkCameraElement' }, (response) => {
-        if (chrome.runtime.lastError) {
-          console.error('Error checking camera element:', chrome.runtime.lastError);
-          return;
-        }
-        if (response) {
-          const currentState = getTabState(tabId);
-          if (currentState.isCameraVisible !== response.isPresent) {
-            setTabState(tabId, { isCameraVisible: response.isPresent });
-            syncState(tabId);
-          }
-        }
-      });
-    });
-  }, 1000); // Check every second
-
-  setTabState(tabId, { ...state, checkIntervalId });
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -126,7 +73,6 @@ chrome.tabs.onCreated.addListener((tab) => {
   if (tab.id) {
     setTabState(tab.id, {
       isActive: false,
-      isCameraVisible: false,
       currentDevice: devices[0]
     });
     syncState(tab.id);
@@ -135,7 +81,6 @@ chrome.tabs.onCreated.addListener((tab) => {
 
 // Clean up state when a tab is removed
 chrome.tabs.onRemoved.addListener((tabId) => {
-  stopCameraElementCheck(tabId);
   chrome.storage.local.remove(tabId.toString());
 });
 
@@ -144,11 +89,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete') {
     const state = getTabState(tabId);
     if (state.isActive) {
-      applySimulation(tabId, state.currentDevice, state.isCameraVisible)
+      applySimulation(tabId, state.currentDevice)
         .catch(error => console.error('Error reapplying simulation:', error));
-      startCameraElementCheck(tabId);
-    } else {
-      stopCameraElementCheck(tabId);
     }
   }
 });

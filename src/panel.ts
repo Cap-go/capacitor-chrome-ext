@@ -4,13 +4,10 @@ import { DeviceConfig, devices } from './deviceConfigs';
 
 const deviceSelector = document.getElementById('deviceSelector') as HTMLSelectElement;
 const toggleSimulation = document.getElementById('toggleSimulation') as HTMLInputElement;
-const toggleCamera = document.getElementById('toggleCamera') as HTMLInputElement;
 const statusElement = document.getElementById('status') as HTMLDivElement;
 
-function updateUI(isActive: boolean, isCameraVisible: boolean, currentDevice: DeviceConfig | null) {
+function updateUI(isActive: boolean, currentDevice: DeviceConfig | null) {
   toggleSimulation.checked = isActive;
-  toggleCamera.checked = isCameraVisible;
-  toggleCamera.disabled = !currentDevice?.camera;
   statusElement.textContent = isActive ? 'Simulation Active' : 'Simulation Inactive';
   statusElement.className = isActive ? 'font-bold text-green-500' : 'font-bold text-red-500';
   
@@ -63,7 +60,7 @@ deviceSelector.addEventListener('change', async (event) => {
     const response = await sendMessage({ action: 'changeDevice', deviceIndex: selectedIndex });
     console.log('Device change response:', response);
     if (response && response.success) {
-      updateUI(response.state.isActive, response.state.isCameraVisible, response.state.currentDevice);
+      updateUI(response.state.isActive, response.state.currentDevice);
     } else {
       console.error('Failed to change device:', response.error);
     }
@@ -79,7 +76,7 @@ toggleSimulation.addEventListener('change', async () => {
     const response = await sendMessage({ action: 'toggleSimulation', isActive: isChecked });
     console.log('Toggle simulation response:', response);
     if (response && response.success) {
-      updateUI(response.state.isActive, response.state.isCameraVisible, response.state.currentDevice);
+      updateUI(response.state.isActive, response.state.currentDevice);
     } else {
       console.error('Failed to toggle simulation:', response.error);
       toggleSimulation.checked = !isChecked; // Revert the checkbox state
@@ -87,21 +84,6 @@ toggleSimulation.addEventListener('change', async () => {
   } catch (error) {
     console.error('Error toggling simulation:', error);
     toggleSimulation.checked = !isChecked; // Revert the checkbox state
-  }
-});
-
-toggleCamera.addEventListener('change', async () => {
-  const isChecked = toggleCamera.checked;
-  console.log('Toggle camera changed:', isChecked);
-  try {
-    const response = await sendMessage({ action: 'toggleCamera', isVisible: isChecked });
-    console.log('Toggle camera response:', response);
-    if (response && response.success) {
-      updateUI(response.state.isActive, response.state.isCameraVisible, response.state.currentDevice);
-    }
-  } catch (error) {
-    console.error('Error toggling camera:', error);
-    toggleCamera.checked = !isChecked; // Revert the checkbox state
   }
 });
 
@@ -115,7 +97,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
     const response = await sendMessage({ action: 'getState' });
     console.log('Initial state:', response);
     if (response && response.success) {
-      updateUI(response.state.isActive, response.state.isCameraVisible, response.state.currentDevice);
+      updateUI(response.state.isActive, response.state.currentDevice);
     }
   } catch (error) {
     console.error('Error getting initial state:', error);
@@ -126,6 +108,6 @@ chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'updateState') {
     console.log('Received state update:', message);
-    updateUI(message.state.isActive, message.state.isCameraVisible, message.state.currentDevice);
+    updateUI(message.state.isActive, message.state.currentDevice);
   }
 });

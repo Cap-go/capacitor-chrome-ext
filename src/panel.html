@@ -4,21 +4,14 @@
   <title>Capacitor Safe Area Simulator</title>
   <link href="styles.css" rel="stylesheet">
 </head>
-<body class="bg-white dark:bg-gray-800 text-gray-900 dark:text-white p-4">
+<body class="p-4 text-gray-900 bg-white dark:bg-gray-800 dark:text-white">
   <div class="space-y-4">
-    <select id="deviceSelector" class="p-2 border border-gray-300 rounded-md bg-white dark:bg-gray-700 dark:border-gray-600"></select>
+    <select id="deviceSelector" class="p-2 bg-white border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600"></select>
     <div class="flex items-center space-x-2">
       <label class="relative inline-flex items-center cursor-pointer">
         <input type="checkbox" id="toggleSimulation" class="sr-only peer">
         <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
         <span class="ml-3">Toggle Simulation</span>
-      </label>
-    </div>
-    <div class="flex items-center space-x-2">
-      <label class="relative inline-flex items-center cursor-pointer">
-        <input type="checkbox" id="toggleCamera" class="sr-only peer">
-        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-        <span class="ml-3">Toggle Camera</span>
       </label>
     </div>
     <div id="status" class="font-bold"></div>
