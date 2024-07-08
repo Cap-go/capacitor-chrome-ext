@@ -36,6 +36,40 @@ export async function removeIonicSafeArea(tabId: number) {
   });
 }
 
+export async function applyTailwindCapacitorSafeArea(tabId: number, device: DeviceConfig) {
+  const { safeArea } = device;
+
+  let css = `
+    :root {
+      --c-safe-area-top: ${safeArea.top}px;
+      --c-safe-area-right: ${safeArea.right}px;
+      --c-safe-area-bottom: ${safeArea.bottom}px;
+      --c-safe-area-left: ${safeArea.left}px;
+    }
+  `;
+
+  await chrome.scripting.insertCSS({
+    target: { tabId },
+    css: css
+  });
+}
+
+export async function removeTailwindCapacitorSafeArea(tabId: number) {
+  const css = `
+    :root { 
+      --c-safe-area-top: env(safe-area-inset-top);
+      --c-safe-area-bottom: env(safe-area-inset-bottom);
+      --c-safe-area-left: env(safe-area-inset-left);
+      --c-safe-area-right: env(safe-area-inset-right);
+    }
+  `;
+
+  await chrome.scripting.insertCSS({
+    target: { tabId },
+    css: css
+  });
+}
+
 export async function applyKonstaSafeArea(tabId: number, device: DeviceConfig) {
   const { safeArea } = device;
 
@@ -112,10 +146,12 @@ export async function removeKonstaSafeArea(tabId: number) {
 
 export async function applySafeArea(tabId: number, device: DeviceConfig) {
   await applyIonicSafeArea(tabId, device);
+  await applyTailwindCapacitorSafeArea(tabId, device);
   await applyKonstaSafeArea(tabId, device);
 }
 
 export async function removeSafeArea(tabId: number) {
   await removeIonicSafeArea(tabId);
+  await removeTailwindCapacitorSafeArea(tabId);
   await removeKonstaSafeArea(tabId);
 }
