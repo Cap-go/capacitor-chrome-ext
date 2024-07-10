@@ -39,34 +39,47 @@ export async function removeIonicSafeArea(tabId: number) {
 export async function applyTailwindCapacitorSafeArea(tabId: number, device: DeviceConfig) {
   const { safeArea } = device;
 
-  let css = `
-    :root {
-      --c-safe-area-top: ${safeArea.top}px;
-      --c-safe-area-right: ${safeArea.right}px;
-      --c-safe-area-bottom: ${safeArea.bottom}px;
-      --c-safe-area-left: ${safeArea.left}px;
-    }
+  const script = `
+    (function() {
+      const style = document.createElement('style');
+      style.id = 'tailwind-capacitor-safe-area-override';
+      style.textContent = \`
+        @supports (top: env(safe-area-inset-top)) {
+          .safe-areas {
+            --c-safe-area-top: ${safeArea.top}px !important;
+            --c-safe-area-right: ${safeArea.right}px !important;
+            --c-safe-area-bottom: ${safeArea.bottom}px !important;
+            --c-safe-area-left: ${safeArea.left}px !important;
+          }
+        }
+        :root {
+          --c-safe-area-top: ${safeArea.top}px !important;
+          --c-safe-area-right: ${safeArea.right}px !important;
+          --c-safe-area-bottom: ${safeArea.bottom}px !important;
+          --c-safe-area-left: ${safeArea.left}px !important;
+        }
+      \`;
+      document.head.appendChild(style);
+
+      // Also set on html element for immediate effect
+      const html = document.documentElement;
+      html.style.setProperty('--c-safe-area-top', '${safeArea.top}px', 'important');
+      html.style.setProperty('--c-safe-area-right', '${safeArea.right}px', 'important');
+      html.style.setProperty('--c-safe-area-bottom', '${safeArea.bottom}px', 'important');
+      html.style.setProperty('--c-safe-area-left', '${safeArea.left}px', 'important');
+    })();
   `;
 
-  await chrome.scripting.insertCSS({
+  await chrome.scripting.executeScript({
     target: { tabId },
-    css: css
-  });
-}
-
-export async function removeTailwindCapacitorSafeArea(tabId: number) {
-  const css = `
-    :root { 
-      --c-safe-area-top: env(safe-area-inset-top);
-      --c-safe-area-bottom: env(safe-area-inset-bottom);
-      --c-safe-area-left: env(safe-area-inset-left);
-      --c-safe-area-right: env(safe-area-inset-right);
-    }
-  `;
-
-  await chrome.scripting.insertCSS({
-    target: { tabId },
-    css: css
+    func: (scriptContent) => {
+      const script = document.createElement('script');
+      script.textContent = scriptContent;
+      document.head.appendChild(script);
+      script.remove();
+    },
+    args: [script],
+    world: "MAIN"
   });
 }
 
@@ -128,6 +141,33 @@ export async function removeKonstaSafeArea(tabId: number) {
       html.style.removeProperty('--k-safe-area-right');
       html.style.removeProperty('--k-safe-area-bottom');
       html.style.removeProperty('--k-safe-area-left');
+    })();
+  `;
+
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    func: (scriptContent) => {
+      const script = document.createElement('script');
+      script.textContent = scriptContent;
+      document.head.appendChild(script);
+      script.remove();
+    },
+    args: [script],
+    world: "MAIN"
+  });
+}
+
+export async function removeTailwindCapacitorSafeArea(tabId: number) {
+  const script = `
+    (function() {
+      const style = document.getElementById('tailwind-capacitor-safe-area-override');
+      if (style) style.remove();
+
+      const html = document.documentElement;
+      html.style.removeProperty('--c-safe-area-top');
+      html.style.removeProperty('--c-safe-area-right');
+      html.style.removeProperty('--c-safe-area-bottom');
+      html.style.removeProperty('--c-safe-area-left');
     })();
   `;
 
