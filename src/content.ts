@@ -76,12 +76,12 @@ window.addEventListener('resetSafeArea', () => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('Content script received message:', message);
+  // console.log('Content script received message:', message);
 
   switch (message.action) {
     case 'checkSimulationStatus':
       const status = window.checkSimulationStatus();
-      console.log('Checking simulation status:', status);
+      // console.log('Checking simulation status:', status);
       sendResponse(status);
       break;
     case 'changeDevice':
@@ -91,7 +91,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       chrome.runtime.sendMessage(message, sendResponse);
       return true; // Keeps the message channel open for the asynchronous response
     default:
-      console.log('Unhandled message action:', message.action);
+      // console.log('Unhandled message action:', message.action);
       sendResponse({success: false, error: 'Unhandled message action'});
   }
 
